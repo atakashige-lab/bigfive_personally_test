@@ -1,0 +1,574 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ビッグファイブ性格診断</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 10px;
+            padding: 40px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        }
+        h1 {
+            color: #333;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+        h2 {
+            color: #555;
+            margin-bottom: 15px;
+        }
+        .screen {
+            display: none;
+        }
+        .screen.active {
+            display: block;
+        }
+        .intro {
+            text-align: center;
+        }
+        .intro p {
+            margin: 20px 0;
+            line-height: 1.6;
+            color: #666;
+        }
+        button {
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 12px 30px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            margin-top: 20px;
+        }
+        button:hover {
+            background: #5568d3;
+        }
+        .question {
+            margin: 30px 0;
+        }
+        .question-text {
+            font-size: 18px;
+            margin-bottom: 15px;
+            color: #333;
+        }
+        .options {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        .option {
+            display: flex;
+            align-items: center;
+            padding: 10px;
+            border: 2px solid #e0e0e0;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        .option:hover {
+            border-color: #667eea;
+            background: #f5f5ff;
+        }
+        .option input[type="radio"] {
+            margin-right: 10px;
+            width: 20px;
+            height: 20px;
+        }
+        .progress {
+            margin-bottom: 30px;
+            background: #e0e0e0;
+            height: 8px;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+        .progress-bar {
+            height: 100%;
+            background: #667eea;
+            transition: width 0.3s;
+        }
+        .result-section {
+            margin: 30px 0;
+        }
+        .trait-result {
+            margin: 15px 0;
+            padding: 15px;
+            background: #f5f5f5;
+            border-radius: 5px;
+            border-left: 4px solid #667eea;
+        }
+        .trait-name {
+            font-weight: bold;
+            color: #333;
+            margin-bottom: 5px;
+        }
+        .trait-score {
+            color: #666;
+        }
+        .level-high { border-left-color: #e74c3c; }
+        .level-medium { border-left-color: #f39c12; }
+        .level-low { border-left-color: #3498db; }
+        .share-section {
+            margin-top: 30px;
+            padding: 20px;
+            background: #e8f5e9;
+            border-radius: 5px;
+            text-align: center;
+        }
+        .share-buttons {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+            margin-top: 15px;
+        }
+        .share-btn {
+            padding: 10px 20px;
+            text-decoration: none;
+            color: white;
+            border-radius: 5px;
+            display: inline-block;
+        }
+        .twitter-btn { background: #1DA1F2; }
+        .line-btn { background: #00B900; }
+        .copy-btn { background: #666; }
+        canvas {
+            max-width: 100%;
+            margin: 20px auto;
+            display: block;
+        }
+        .dimension-label {
+            font-size: 12px;
+            color: #999;
+            margin-top: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- TOP画面 -->
+        <div id="screen-top" class="screen active">
+            <div class="intro">
+                <h1>ビッグファイブ性格診断</h1>
+                <p>この診断では、あなたの性格を5つの特性（ビッグファイブ）で分析します。</p>
+                <p><strong>5つの特性：</strong><br>
+                開放性・誠実性・外向性・協調性・神経症傾向</p>
+                <p>各質問に5段階で回答してください。<br>所要時間：約2分</p>
+                <button onclick="startTest()">診断を開始する</button>
+            </div>
+        </div>
+
+        <!-- 診断画面 -->
+        <div id="screen-test" class="screen">
+            <div class="progress">
+                <div class="progress-bar" id="progress-bar"></div>
+            </div>
+            <h2 id="trait-title"></h2>
+            <div id="questions-container"></div>
+            <button onclick="nextTrait()" id="next-btn" disabled>次へ</button>
+        </div>
+
+        <!-- 結果画面 -->
+        <div id="screen-result" class="screen">
+            <h1>診断結果</h1>
+            <canvas id="radar-chart" width="400" height="400"></canvas>
+            <div class="result-section" id="results-container"></div>
+
+            <div class="share-section">
+                <h3>結果をシェアする</h3>
+                <p id="result-url"></p>
+                <div class="share-buttons">
+                    <a href="#" class="share-btn twitter-btn" id="twitter-share" target="_blank">Twitterでシェア</a>
+                    <a href="#" class="share-btn line-btn" id="line-share" target="_blank">LINEでシェア</a>
+                    <button class="share-btn copy-btn" onclick="copyUrl()">URLをコピー</button>
+                </div>
+            </div>
+
+            <div style="text-align: center; margin-top: 30px;">
+                <button onclick="restartTest()">もう一度診断する</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ビッグファイブの定義
+        const traits = [
+            {
+                id: 'openness',
+                name: '開放性',
+                nameEn: 'Openness',
+                questions: [
+                    { text: '新しいアイデアや経験に興味がある', reverse: false },
+                    { text: '想像力を働かせることが好きだ', reverse: false }
+                ]
+            },
+            {
+                id: 'conscientiousness',
+                name: '誠実性',
+                nameEn: 'Conscientiousness',
+                questions: [
+                    { text: '計画を立てて物事を進めることが多い', reverse: false },
+                    { text: '約束や期限をきちんと守る', reverse: false }
+                ]
+            },
+            {
+                id: 'extraversion',
+                name: '外向性',
+                nameEn: 'Extraversion',
+                questions: [
+                    { text: '人と話すことでエネルギーが湧いてくる', reverse: false },
+                    { text: 'パーティーや集まりが好きだ', reverse: false }
+                ]
+            },
+            {
+                id: 'agreeableness',
+                name: '協調性',
+                nameEn: 'Agreeableness',
+                questions: [
+                    { text: '他人の気持ちを理解しようとする', reverse: false },
+                    { text: '対立よりも協力を好む', reverse: false }
+                ]
+            },
+            {
+                id: 'neuroticism',
+                name: '神経症傾向',
+                nameEn: 'Neuroticism',
+                questions: [
+                    { text: 'ストレスを感じやすい', reverse: false },
+                    { text: '不安になることが多い', reverse: false }
+                ]
+            }
+        ];
+
+        let currentTraitIndex = 0;
+        let answers = {};
+
+        // URLパラメータから結果を読み込み
+        function loadFromUrl() {
+            const params = new URLSearchParams(window.location.search);
+            const result = params.get('result');
+
+            if (result && result.length === 5) {
+                // パラメータから直接結果画面へ
+                const scores = {};
+                traits.forEach((trait, index) => {
+                    const level = result[index];
+                    let score;
+                    if (level === 'H') score = 4.5;
+                    else if (level === 'M') score = 3.0;
+                    else score = 1.5;
+                    scores[trait.id] = score;
+                });
+                showResults(scores);
+                showScreen('screen-result');
+            }
+        }
+
+        function startTest() {
+            currentTraitIndex = 0;
+            answers = {};
+            showScreen('screen-test');
+            loadTrait();
+        }
+
+        function loadTrait() {
+            if (currentTraitIndex >= traits.length) {
+                calculateResults();
+                return;
+            }
+
+            const trait = traits[currentTraitIndex];
+            document.getElementById('trait-title').textContent = trait.name;
+
+            const container = document.getElementById('questions-container');
+            container.innerHTML = '';
+
+            trait.questions.forEach((question, qIndex) => {
+                const questionDiv = document.createElement('div');
+                questionDiv.className = 'question';
+
+                const questionText = document.createElement('div');
+                questionText.className = 'question-text';
+                questionText.textContent = `Q${qIndex + 1}: ${question.text}`;
+                questionDiv.appendChild(questionText);
+
+                const optionsDiv = document.createElement('div');
+                optionsDiv.className = 'options';
+
+                const options = [
+                    { value: 5, label: 'とてもそう思う' },
+                    { value: 4, label: 'そう思う' },
+                    { value: 3, label: 'どちらでもない' },
+                    { value: 2, label: 'そう思わない' },
+                    { value: 1, label: 'まったくそう思わない' }
+                ];
+
+                options.forEach(option => {
+                    const optionLabel = document.createElement('label');
+                    optionLabel.className = 'option';
+
+                    const radio = document.createElement('input');
+                    radio.type = 'radio';
+                    radio.name = `q${currentTraitIndex}_${qIndex}`;
+                    radio.value = option.value;
+                    radio.onchange = checkAllAnswered;
+
+                    optionLabel.appendChild(radio);
+                    optionLabel.appendChild(document.createTextNode(option.label));
+                    optionsDiv.appendChild(optionLabel);
+                });
+
+                questionDiv.appendChild(optionsDiv);
+                container.appendChild(questionDiv);
+            });
+
+            updateProgress();
+            document.getElementById('next-btn').disabled = true;
+        }
+
+        function checkAllAnswered() {
+            const trait = traits[currentTraitIndex];
+            let allAnswered = true;
+
+            trait.questions.forEach((question, qIndex) => {
+                const radios = document.getElementsByName(`q${currentTraitIndex}_${qIndex}`);
+                const answered = Array.from(radios).some(radio => radio.checked);
+                if (!answered) allAnswered = false;
+            });
+
+            document.getElementById('next-btn').disabled = !allAnswered;
+        }
+
+        function nextTrait() {
+            // 回答を保存
+            const trait = traits[currentTraitIndex];
+            let sum = 0;
+
+            trait.questions.forEach((question, qIndex) => {
+                const radios = document.getElementsByName(`q${currentTraitIndex}_${qIndex}`);
+                const selected = Array.from(radios).find(radio => radio.checked);
+                const value = parseInt(selected.value);
+                sum += question.reverse ? (6 - value) : value;
+            });
+
+            answers[trait.id] = sum / trait.questions.length;
+
+            currentTraitIndex++;
+            loadTrait();
+        }
+
+        function updateProgress() {
+            const progress = (currentTraitIndex / traits.length) * 100;
+            document.getElementById('progress-bar').style.width = progress + '%';
+        }
+
+        function calculateResults() {
+            showResults(answers);
+            showScreen('screen-result');
+        }
+
+        function showResults(scores) {
+            // レーダーチャートを描画
+            drawRadarChart(scores);
+
+            // 結果テキストを生成
+            const container = document.getElementById('results-container');
+            container.innerHTML = '';
+
+            let resultCode = '';
+
+            traits.forEach(trait => {
+                const score = scores[trait.id];
+                let level, levelText, levelCode;
+
+                if (score >= 3.7) {
+                    level = 'high';
+                    levelText = '高';
+                    levelCode = 'H';
+                } else if (score >= 2.3) {
+                    level = 'medium';
+                    levelText = '中';
+                    levelCode = 'M';
+                } else {
+                    level = 'low';
+                    levelText = '低';
+                    levelCode = 'L';
+                }
+
+                resultCode += levelCode;
+
+                const resultDiv = document.createElement('div');
+                resultDiv.className = `trait-result level-${level}`;
+                resultDiv.innerHTML = `
+                    <div class="trait-name">${trait.name} (${trait.nameEn})</div>
+                    <div class="trait-score">レベル: ${levelText} (${score.toFixed(2)})</div>
+                    <div class="dimension-label">${getTraitDescription(trait.id, level)}</div>
+                `;
+                container.appendChild(resultDiv);
+            });
+
+            // 共有URLを生成
+            const baseUrl = window.location.origin + window.location.pathname;
+            const shareUrl = `${baseUrl}?result=${resultCode}`;
+            document.getElementById('result-url').textContent = shareUrl;
+
+            // SNS共有リンク
+            const shareText = `私のビッグファイブ性格診断結果: ${resultCode}`;
+            document.getElementById('twitter-share').href =
+                `https://twitter.com/intent/tweet?text=${encodeURIComponent(shareText)}&url=${encodeURIComponent(shareUrl)}`;
+            document.getElementById('line-share').href =
+                `https://social-plugins.line.me/lineit/share?url=${encodeURIComponent(shareUrl)}`;
+        }
+
+        function getTraitDescription(traitId, level) {
+            const descriptions = {
+                openness: {
+                    high: '新しい経験や創造的思考を好む',
+                    medium: 'バランスの取れた好奇心',
+                    low: '慣れ親しんだ方法を好む'
+                },
+                conscientiousness: {
+                    high: '計画的で責任感が強い',
+                    medium: '適度な計画性',
+                    low: '柔軟で自発的'
+                },
+                extraversion: {
+                    high: '社交的でエネルギッシュ',
+                    medium: 'バランスの取れた社交性',
+                    low: '内省的で静かな環境を好む'
+                },
+                agreeableness: {
+                    high: '協力的で思いやりがある',
+                    medium: '適度な協調性',
+                    low: '競争的で率直'
+                },
+                neuroticism: {
+                    high: '感受性が高く繊細',
+                    medium: '適度な感情の安定性',
+                    low: '情緒的に安定している'
+                }
+            };
+            return descriptions[traitId][level];
+        }
+
+        function drawRadarChart(scores) {
+            const canvas = document.getElementById('radar-chart');
+            const ctx = canvas.getContext('2d');
+            const centerX = canvas.width / 2;
+            const centerY = canvas.height / 2;
+            const radius = 140;
+
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // 背景の円を描画
+            ctx.strokeStyle = '#e0e0e0';
+            ctx.lineWidth = 1;
+            for (let i = 1; i <= 5; i++) {
+                ctx.beginPath();
+                ctx.arc(centerX, centerY, radius * i / 5, 0, 2 * Math.PI);
+                ctx.stroke();
+            }
+
+            // 軸を描画
+            const angleStep = (2 * Math.PI) / traits.length;
+            traits.forEach((trait, index) => {
+                const angle = angleStep * index - Math.PI / 2;
+                const x = centerX + radius * Math.cos(angle);
+                const y = centerY + radius * Math.sin(angle);
+
+                ctx.beginPath();
+                ctx.moveTo(centerX, centerY);
+                ctx.lineTo(x, y);
+                ctx.stroke();
+
+                // ラベル
+                const labelRadius = radius + 30;
+                const labelX = centerX + labelRadius * Math.cos(angle);
+                const labelY = centerY + labelRadius * Math.sin(angle);
+
+                ctx.fillStyle = '#333';
+                ctx.font = '14px sans-serif';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText(trait.name, labelX, labelY);
+            });
+
+            // データをプロット
+            ctx.beginPath();
+            traits.forEach((trait, index) => {
+                const score = scores[trait.id];
+                const normalizedScore = (score / 5) * radius;
+                const angle = angleStep * index - Math.PI / 2;
+                const x = centerX + normalizedScore * Math.cos(angle);
+                const y = centerY + normalizedScore * Math.sin(angle);
+
+                if (index === 0) {
+                    ctx.moveTo(x, y);
+                } else {
+                    ctx.lineTo(x, y);
+                }
+            });
+            ctx.closePath();
+            ctx.fillStyle = 'rgba(102, 126, 234, 0.3)';
+            ctx.fill();
+            ctx.strokeStyle = '#667eea';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+
+            // データポイント
+            traits.forEach((trait, index) => {
+                const score = scores[trait.id];
+                const normalizedScore = (score / 5) * radius;
+                const angle = angleStep * index - Math.PI / 2;
+                const x = centerX + normalizedScore * Math.cos(angle);
+                const y = centerY + normalizedScore * Math.sin(angle);
+
+                ctx.beginPath();
+                ctx.arc(x, y, 5, 0, 2 * Math.PI);
+                ctx.fillStyle = '#667eea';
+                ctx.fill();
+            });
+        }
+
+        function copyUrl() {
+            const url = document.getElementById('result-url').textContent;
+            navigator.clipboard.writeText(url).then(() => {
+                alert('URLをコピーしました！');
+            });
+        }
+
+        function restartTest() {
+            // URLパラメータをクリア
+            window.history.pushState({}, document.title, window.location.pathname);
+            showScreen('screen-top');
+        }
+
+        function showScreen(screenId) {
+            document.querySelectorAll('.screen').forEach(screen => {
+                screen.classList.remove('active');
+            });
+            document.getElementById(screenId).classList.add('active');
+        }
+
+        // ページ読み込み時
+        window.onload = function() {
+            loadFromUrl();
+        };
+    </script>
+</body>
+</html>
